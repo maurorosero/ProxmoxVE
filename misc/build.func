@@ -519,26 +519,13 @@ base_settings() {
 
   MTU=${var_mtu:-""}
   SD=${var_storage:-""}
-  # Format NS: if var_ns is provided, ensure it has -nameserver= prefix
-  if [[ -n "${var_ns:-}" ]]; then
-    if [[ "${var_ns}" =~ ^-nameserver= ]]; then
-      NS="${var_ns}"
-    else
-      NS="-nameserver=${var_ns}"
-    fi
-  else
-    NS=""
-  fi
+  NS=${var_ns:-""}
   MAC=${var_mac:-""}
   VLAN=${var_vlan:-""}
   SSH=${var_ssh:-"no"}
   SSH_AUTHORIZED_KEY=${var_ssh_authorized_key:-""}
   UDHCPC_FIX=${var_udhcpc_fix:-""}
-  if [ -z "${var_tags:-}" ]; then
-    TAGS="community-script"
-  else
-    TAGS="community-script,${var_tags}"
-  fi
+  TAGS="community-script,${var_tags:-}"
   ENABLE_FUSE=${var_fuse:-"${1:-no}"}
   ENABLE_TUN=${var_tun:-"${1:-no}"}
 
@@ -2719,8 +2706,6 @@ build_container() {
     esac
   fi
 
-  msg_debug "(build_container) NET_STRING after GATE: $NET_STRING"
-
   # VLAN
   if [[ -n "$VLAN" ]]; then
     case "$VLAN" in
@@ -2771,11 +2756,9 @@ build_container() {
   TEMP_DIR=$(mktemp -d)
   pushd "$TEMP_DIR" >/dev/null
   if [ "$var_os" == "alpine" ]; then
-    local install_func_url="${REPO_BASE_URL:-https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main}/misc/alpine-install.func"
-    export FUNCTIONS_FILE_PATH="$(curl -fsSL "${install_func_url}")"
+    export FUNCTIONS_FILE_PATH="$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/alpine-install.func)"
   else
-    local install_func_url="${REPO_BASE_URL:-https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main}/misc/install.func"
-    export FUNCTIONS_FILE_PATH="$(curl -fsSL "${install_func_url}")"
+    export FUNCTIONS_FILE_PATH="$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/install.func)"
   fi
 
   # Core exports for install.func
@@ -2828,17 +2811,9 @@ $PCT_OPTIONS_STRING"
   fi
 
   # Add nameserver if specified
-  # NS should be formatted with -nameserver= prefix, but double-check to be safe
   if [ -n "$NS" ]; then
-    # Ensure NS has the correct format
-    if [[ "$NS" =~ ^-nameserver= ]]; then
-      _ns_formatted="$NS"
-    else
-      # If NS doesn't have prefix, add it (defensive programming)
-      _ns_formatted="-nameserver=$NS"
-    fi
     PCT_OPTIONS_STRING="$PCT_OPTIONS_STRING
-  $_ns_formatted"
+  $NS"
   fi
 
   # Network configuration
@@ -3239,9 +3214,7 @@ EOF'
   set +Eeuo pipefail # Disable ALL error handling temporarily
   trap - ERR         # Remove ERR trap completely
 
-  # Use REPO_BASE_URL if available (for fork testing), otherwise use default
-  local install_url="${REPO_BASE_URL:-https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main}/install/${var_install}.sh"
-  lxc-attach -n "$CTID" -- bash -c "$(curl -fsSL "${install_url}")"
+  lxc-attach -n "$CTID" -- bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/install/${var_install}.sh)"
   local lxc_exit=$?
 
   set -Eeuo pipefail       # Re-enable error handling
@@ -4056,7 +4029,6 @@ create_lxc_container() {
 
   LOGFILE="/tmp/pct_create_${CTID}_$(date +%Y%m%d_%H%M%S)_${SESSION_ID}.log"
 
-  msg_debug "Generated PCT_OPTIONS_STRING: ${PCT_OPTIONS_STRING}"
   msg_debug "pct create command: pct create $CTID ${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE} $PCT_OPTIONS"
   msg_debug "Logfile: $LOGFILE"
 
